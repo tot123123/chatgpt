@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Run Modded</title>
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --secondary: #7000ff;
+            --bg: #0a0a0f;
+            --text: #ffffff;
+            --accent: #ff0077;
+            --panel: #151525;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+            user-select: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            background: #050510;
+        }
+
+        /* UI Containers */
+        .overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0,0,0,0.85);
+            z-index: 100;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: 3.5rem;
+            margin-bottom: 2rem;
+            text-transform: uppercase;
+            letter-spacing: 8px;
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--primary);
+            text-align: center;
+        }
+
+        .menu-buttons { display: flex; flex-direction: column; gap: 15px; }
+
+        button {
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            background: transparent;
+            color: white;
+            border: 2px solid var(--primary);
+            cursor: pointer;
+            transition: 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-radius: 4px;
+            min-width: 280px;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: black;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .disclaimer {
+            margin-top: 20px;
+            color: #666;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+
+        /* Mod Library & Editor Windows */
+        .window {
+            background: var(--panel);
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid var(--primary);
+            width: 90%;
+            max-width: 1000px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .mod-editor { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+        textarea {
+            background: #000;
+            color: #00ffaa;
+            font-family: 'Courier New', monospace;
+            padding: 12px;
+            height: 450px;
+            border: 1px solid var(--secondary);
+            border-radius: 5px;
+            resize: vertical;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .mod-item {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            margin: 8px 0;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--secondary);
+        }
+
+        /* Tutorial Overlay */
+        #tutorial-overlay {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 10, 20, 0.95);
+            border: 2px solid var(--primary);
+            padding: 20px 30px;
+            border-radius: 15px;
+            z-index: 2000;
+            width: 80%;
+            max-width: 600px;
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .tutorial-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: var(--text);
+        }
+
+        .tutorial-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .tutorial-highlight {
+            color: var(--primary);
+            font-weight: bold;
+            text-shadow: 0 0 5px var(--primary);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Main Menu -->
+    <div id="main-menu" class="overlay">
+        <h1>Geo Run Modded<br><span style="font-size: 1rem; letter-spacing: 2px; color: var(--secondary);">LATEST UPDATE CORE ACCESS</span></h1>
+        <div class="menu-buttons">
+            <button id="btn-mod-library" onclick="toggleModLibrary(true)">Access Mod Library & Source</button>
+            <button onclick="window.location.reload()">Reset Engine</button>
+        </div>
+        <div class="disclaimer">You can also mod in old approved modded versions!</div>
+    </div>
+
+    <!-- Mod Library -->
+    <div id="mod-overlay" class="overlay hidden">
+        <div class="window" id="mod-window">
+            <h2 style="color:var(--primary); margin-top:0;">Source Code Editor & Mod Library</h2>
+            
+            <p style="color: #888; margin-top: 10px; font-size: 0.9rem;">Paste the engine code below to start modding.</p>
+            
+            <div class="mod-editor">
+                <input type="text" id="mod-name" placeholder="Name your Mod Version" style="padding:10px; background:#000; border:1px solid #333; color:white;">
+                <textarea id="mod-code" spellcheck="false" placeholder="Paste script here..."></textarea>
+                <div style="display:flex; gap:10px;">
+                    <button id="btn-save-mod" onclick="saveMod()" style="flex:1; min-width:auto;">Save to Library</button>
+                    <button id="btn-copy-code" onclick="copyCode()" style="flex:1; min-width:auto; border-color:var(--secondary)">Copy All Code</button>
+                </div>
+            </div>
+
+            <div id="mod-list"></div>
+            <button id="btn-close-mod" onclick="toggleModLibrary(false)" style="margin-top:20px; width:100%;">Return to Menu</button>
+        </div>
+    </div>
+
+    <!-- Tutorial Box -->
+    <div id="tutorial-overlay" class="hidden">
+        <div class="tutorial-text" id="tutorial-content">Welcome to the Mod Terminal.</div>
+        <div class="tutorial-controls">
+            <button onclick="skipTutorial()" style="min-width:auto; padding:5px 15px; font-size: 0.8rem; border-color: #555;">Skip Tutorial</button>
+            <button onclick="nextTutorialStep()" id="btn-next-step" style="min-width:auto; padding:8px 25px; border-color: var(--primary);">Next</button>
+        </div>
+    </div>
+
+    <script id="game-engine">
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let modLibrary = JSON.parse(localStorage.getItem('geoModLibrary') || '[]');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function toggleModLibrary(show) {
+            document.getElementById('mod-overlay').classList.toggle('hidden', !show);
+            if(show) {
+                renderModList();
+            }
+        }
+
+        function saveMod() {
+            const name = document.getElementById('mod-name').value || "Mod " + Date.now();
+            const code = document.getElementById('mod-code').value;
+            if(!code) return alert("Please paste some code before saving.");
+            modLibrary.push({ id: Date.now(), name, code });
+            localStorage.setItem('geoModLibrary', JSON.stringify(modLibrary));
+            renderModList();
+            document.getElementById('mod-name').value = "";
+            alert("Mod Saved to Library!");
+        }
+
+        function copyCode() {
+            const code = document.getElementById('mod-code').value;
+            if(!code) return alert("Nothing to copy!");
+            const el = document.createElement('textarea');
+            el.value = code;
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+            alert("Code copied to clipboard!");
+        }
+
+        function renderModList() {
+            const list = document.getElementById('mod-list');
+            list.innerHTML = "";
+            modLibrary.forEach((mod) => {
+                const div = document.createElement('div');
+                div.className = 'mod-item';
+                div.innerHTML = `<span>${mod.name}</span>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="loadMod('${mod.id}')" style="min-width:auto; padding:5px 15px;">Load</button>
+                    <button onclick="deleteMod('${mod.id}')" style="min-width:auto; padding:5px 15px; border-color:red;">Del</button>
+                </div>`;
+                list.appendChild(div);
+            });
+        }
+
+        window.loadMod = (id) => {
+            const mod = modLibrary.find(m => m.id == id);
+            if(mod) {
+                document.getElementById('mod-code').value = mod.code;
+                document.getElementById('mod-name').value = mod.name;
+            }
+        };
+
+        window.deleteMod = (id) => {
+            modLibrary = modLibrary.filter(m => m.id != id);
+            localStorage.setItem('geoModLibrary', JSON.stringify(modLibrary));
+            renderModList();
+        };
+
+        // --- TUTORIAL ---
+        let currentTutorialStep = 0;
+        const tutorialSteps = [
+            {
+                text: "This tutorial is meant for the <span class='tutorial-highlight'>newest update</span> of GeoDash.",
+                action: () => {}
+            },
+            {
+                text: "First, open the <span class='tutorial-highlight'>Access Mod Library & Source</span> panel.",
+                action: () => { 
+                    document.getElementById('btn-mod-library').style.boxShadow = "0 0 20px #00f2ff";
+                }
+            },
+            {
+                text: "You will notice the editor is empty. You must <span class='tutorial-highlight'>copy and paste the script</span> from the newest update file into this editor.",
+                action: () => {
+                    toggleModLibrary(true);
+                    document.getElementById('btn-mod-library').style.boxShadow = "none";
+                }
+            },
+            {
+                text: "Once the code is pasted, you can freely modify variables like gravity, speed, or visuals.",
+                action: () => {
+                    document.getElementById('mod-code').style.boxShadow = "inset 0 0 10px #00ffaa";
+                }
+            },
+            {
+                text: "When you're done, use the <span class='tutorial-highlight'>Copy All Code</span> button.",
+                action: () => {
+                    document.getElementById('btn-copy-code').style.boxShadow = "0 0 15px #7000ff";
+                }
+            },
+            {
+                text: "Finally, <span class='tutorial-highlight'>paste the code into the official GeoDash html viewer</span> and play your game!",
+                action: () => {
+                    document.getElementById('mod-code').style.boxShadow = "none";
+                    document.getElementById('btn-copy-code').style.boxShadow = "none";
+                }
+            }
+        ];
+
+        function startTutorial() {
+            if (!localStorage.getItem('geoTutorialSeen')) {
+                document.getElementById('tutorial-overlay').classList.remove('hidden');
+                updateTutorialUI();
+            }
+        }
+
+        function nextTutorialStep() {
+            currentTutorialStep++;
+            if (currentTutorialStep >= tutorialSteps.length) skipTutorial();
+            else updateTutorialUI();
+        }
+
+        function updateTutorialUI() {
+            const step = tutorialSteps[currentTutorialStep];
+            document.getElementById('tutorial-content').innerHTML = step.text;
+            step.action();
+        }
+
+        function skipTutorial() {
+            document.getElementById('tutorial-overlay').classList.add('hidden');
+            localStorage.setItem('geoTutorialSeen', 'true');
+        }
+
+        function menuVisuals() {
+            if(document.getElementById('main-menu').classList.contains('hidden') && document.getElementById('mod-overlay').classList.contains('hidden')) return;
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            ctx.strokeStyle = "rgba(0, 242, 255, 0.05)";
+            ctx.lineWidth = 1;
+            for(let i=0; i < canvas.width; i += 50) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            requestAnimationFrame(menuVisuals);
+        }
+
+        window.onload = () => {
+            menuVisuals();
+            startTutorial();
+        };
+    </script>
+</body>
+</html>

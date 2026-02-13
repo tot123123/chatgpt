@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEODASH-HTML-VIEWER</title>
+    <style>
+        :root {
+            --bg: #1e1e1e;
+            --text: #ffffff;
+            --accent: #007acc;
+            --border: #333;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            background-color: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .toolbar {
+            height: 40px;
+            background: #252526;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid var(--border);
+            justify-content: space-between;
+        }
+
+        .main {
+            display: flex;
+            flex: 1;
+            height: calc(100% - 40px);
+            transition: all 0.3s ease;
+        }
+
+        .editor-section, .preview-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .editor-section {
+            border-right: 1px solid var(--border);
+        }
+
+        /* Full Screen Logic */
+        .full-screen-preview .editor-section {
+            display: none;
+        }
+        
+        .full-screen-preview .preview-section {
+            flex: 1;
+        }
+
+        .label-bar {
+            background: #2d2d2d;
+            padding: 5px 10px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        textarea {
+            flex: 1;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border: none;
+            padding: 15px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            line-height: 1.5;
+        }
+
+        iframe {
+            flex: 1;
+            background: white;
+            border: none;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .btn:hover {
+            background: #0062a3;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="appContainer">
+        <div class="toolbar">
+            <div style="font-weight: bold; letter-spacing: 1px;">GEODASH-HTML-VIEWER</div>
+        </div>
+
+        <div class="main" id="mainArea">
+            <div class="editor-section">
+                <div class="label-bar">Input (HTML/CSS/JS)</div>
+                <textarea id="editor" spellcheck="false" placeholder="Type your HTML here..."></textarea>
+            </div>
+            
+            <div class="preview-section">
+                <div class="label-bar">
+                    <span>Live Preview</span>
+                    <button class="btn" id="fsBtn" onclick="toggleFullScreen()">Toggle Full Screen</button>
+                </div>
+                <iframe id="preview"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const preview = document.getElementById('preview');
+        const mainArea = document.getElementById('mainArea');
+        const fsBtn = document.getElementById('fsBtn');
+
+        // Initial Template
+        const defaultCode = `<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f4f4f9; }
+        h1 { color: #007acc; }
+        .card { border: 1px solid #ddd; padding: 40px; border-radius: 12px; background: white; display: inline-block; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #007acc; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>GEODASH-HTML-VIEWER</h1>
+        <p>Edit the code on the left to see changes here.</p>
+        <button onclick="alert('Success!')">Test Interaction</button>
+    </div>
+</body>
+</html>`;
+
+        editor.value = defaultCode;
+
+        function updatePreview() {
+            const content = editor.value;
+            const doc = preview.contentWindow.document;
+            doc.open();
+            doc.write(content);
+            doc.close();
+        }
+
+        function toggleFullScreen() {
+            const isFull = mainArea.classList.toggle('full-screen-preview');
+            fsBtn.textContent = isFull ? "Exit Full Screen" : "Toggle Full Screen";
+        }
+
+        // Event listener for real-time typing
+        editor.addEventListener('input', updatePreview);
+
+        // Initial load
+        window.onload = updatePreview;
+    </script>
+</body>
+</html>

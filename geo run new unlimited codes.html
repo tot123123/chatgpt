@@ -1,0 +1,2752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geo Run - Create & Play</title>
+    <style>
+        :root {
+            --bg-color: #111;
+            --ui-bg: rgba(20, 20, 30, 0.95);
+            --accent: #00ffcc;
+            --danger: #ff3366;
+            --gold: #ffd700;
+            --text: #fff;
+            --font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: var(--font);
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Allow text selection in inputs so they can be edited */
+        input, textarea {
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            pointer-events: auto !important;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            background: linear-gradient(to bottom, #1a1a2e, #16213e);
+        }
+
+        /* UI Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10;
+            transition: opacity 0.3s;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        h1 {
+            font-size: 4rem;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px var(--accent);
+            color: var(--accent);
+            letter-spacing: 5px;
+            font-style: italic;
+        }
+
+        button {
+            background: transparent;
+            color: var(--text);
+            border: 2px solid var(--accent);
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            margin: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+            border-radius: 5px;
+        }
+
+        button:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent);
+            transform: scale(1.05);
+        }
+
+        button.danger {
+            border-color: var(--danger);
+        }
+        button.danger:hover {
+            background: var(--danger);
+            box-shadow: 0 0 20px var(--danger);
+        }
+
+        button.locked {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        /* Pause Button on HUD */
+        #hud-pause-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            font-size: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 20;
+            padding: 0;
+            margin: 0;
+        }
+        #hud-pause-btn:hover { background: rgba(255,255,255,0.2); }
+
+        /* Coin Display */
+        .coin-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 1.5rem;
+            color: var(--gold);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        /* Shop UI */
+        #shop-menu {
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        /* Main container sizing for shop items */
+        #shop-container {
+            max-width: 800px;
+            width: 90%;
+            margin-bottom: 20px;
+        }
+
+        /* Grid Class - Applied only for normal items */
+        .shop-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .shop-item {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid #444;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+        }
+
+        .shop-item:hover {
+            border-color: var(--accent);
+            background: rgba(255,255,255,0.1);
+        }
+
+        .shop-item.owned {
+            border-color: #666;
+        }
+
+        .shop-item.equipped {
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        .item-preview {
+            width: 40px;
+            height: 40px;
+            margin: 0 auto 10px;
+            display: block;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        /* Battle Pass Styles */
+        .pass-track {
+            display: flex;
+            gap: 20px;
+            overflow-x: auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            border-radius: 10px;
+            width: 100%;
+            border: 2px solid #00ffcc;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
+            box-sizing: border-box;
+        }
+       
+        .pass-card {
+            min-width: 160px;
+            height: 240px;
+            background: rgba(0,0,0,0.6);
+            border: 2px solid #444;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            color: #fff;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .pass-card:hover { transform: scale(1.05); }
+        .pass-card.unlocked { border-color: #ffd700; background: linear-gradient(to bottom, rgba(255, 215, 0, 0.1), rgba(0,0,0,0.8)); }
+        .pass-card.locked { opacity: 0.5; filter: grayscale(1); }
+       
+        .pass-card h4 { margin: 0; color: #ffd700; font-size: 1.1rem; }
+        .pass-card .tier-num { position: absolute; top: 5px; left: 10px; font-weight: bold; color: #aaa; }
+        .pass-card .req { font-size: 0.8rem; color: #ccc; }
+
+        /* Redeem Section */
+        .redeem-section {
+            background: rgba(255,255,255,0.05);
+            border: 1px dashed var(--gold);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+        .redeem-input-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .redeem-input-group input {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+            font-size: 1.1rem;
+            width: 200px;
+            text-transform: uppercase;
+        }
+
+        /* Shop Timer */
+        #shop-timer {
+            font-size: 1.5rem;
+            color: var(--gold);
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        /* Editor UI */
+        #editor-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+        }
+
+        #editor-toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--ui-bg);
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            pointer-events: auto;
+            border: 1px solid #444;
+        }
+
+        .tool-group {
+            display: flex;
+            gap: 5px;
+            padding-right: 15px;
+            border-right: 1px solid #555;
+        }
+        .tool-group:last-child { border: none; }
+
+        .tool-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            border: 2px solid #555;
+            background: #222;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            transition: all 0.2s;
+            padding: 0;
+            margin: 0;
+        }
+
+        .tool-btn.active {
+            border-color: var(--accent);
+            background: #333;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .tool-btn.feature-btn.active {
+            background: var(--accent);
+            color: #000;
+        }
+
+        #editor-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Properties Panel */
+        #properties-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 280px;
+            background: var(--ui-bg);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 100; /* Ensure on top */
+        }
+
+        #properties-panel h3 {
+            margin: 0 0 10px 0;
+            color: var(--accent);
+            font-size: 1.2rem;
+            text-transform: uppercase;
+        }
+
+        #properties-panel label {
+            font-size: 0.8rem;
+            color: #aaa;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        #properties-panel input[type="text"], #properties-panel input[type="number"] {
+            width: 90%;
+            background: #111;
+            border: 1px solid #444;
+            color: #fff;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+
+        #properties-panel input[type="color"] {
+            width: 100%;
+            height: 30px;
+            border: none;
+            background: none;
+            cursor: pointer;
+        }
+       
+        .prop-btn-small {
+            background: #333;
+            border: 1px solid #555;
+            padding: 5px;
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        /* Modal */
+        #modal, #delete-modal {
+            background: var(--ui-bg);
+            padding: 30px;
+            border-radius: 10px;
+            border: 1px solid #444;
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        textarea {
+            width: 100%;
+            height: 100px;
+            background: #111;
+            color: #aaa;
+            border: 1px solid #444;
+            padding: 10px;
+            margin: 15px 0;
+            resize: none;
+            font-family: monospace;
+        }
+
+        .notification {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent);
+            color: #000;
+            padding: 10px 30px;
+            border-radius: 20px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s;
+            pointer-events: none;
+            z-index: 50;
+        }
+
+        .credits {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            pointer-events: none;
+        }
+       
+        /* Projects List */
+        #projects-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+
+        .project-item {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid #444;
+            padding: 15px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+       
+        .project-item:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent);
+        }
+
+        #disclaimer-box, #update-box {
+            background: var(--ui-bg);
+            padding: 40px;
+            border: 2px solid var(--danger);
+            border-radius: 10px;
+            max-width: 600px;
+            text-align: center;
+        }
+        #update-box { border-color: var(--accent); }
+
+        .song-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid #444;
+            padding: 15px;
+            width: 100%;
+            margin-bottom: 10px;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .song-btn:hover { background: rgba(255,255,255,0.2); }
+        .song-btn.active { border-color: var(--accent); background: rgba(0, 255, 204, 0.1); }
+        .song-btn.locked { opacity: 0.5; cursor: not-allowed; }
+
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <button id="hud-pause-btn" onclick="game.pause()" class="hidden">II</button>
+
+        <div class="coin-display">
+            <span>🪙</span> <span id="coin-count">0</span>
+        </div>
+
+        <!-- Disclaimer -->
+        <div id="disclaimer" class="overlay">
+            <div id="disclaimer-box">
+                <h2 style="color: var(--danger); margin-bottom: 20px; font-size: 2rem;">WARNING</h2>
+                <p style="font-size: 1.2rem; margin-bottom: 30px; line-height: 1.6;">
+                    WARNING!!! Do not play in class.<br>
+                    Also the games a bit glitchy so don't expect much.<br>
+                    Have fun!!!
+                </p>
+                <button onclick="ui.closeDisclaimer()">I Understand</button>
+            </div>
+        </div>
+
+        <!-- Update News -->
+        <div id="update-news" class="overlay hidden">
+            <div id="update-box">
+                <h1 style="color: var(--accent); font-style: italic; margin-bottom: 20px;">NEW UPDATE!</h1>
+                <ul style="text-align: left; margin: 0 auto 30px auto; width: 80%; font-size: 1.1rem; line-height: 2;">
+                    <li>🎁 <b>Redeem Codes</b> & IRL Gift Cards!</li>
+                    <li>🔒 Codes are now <b>1-TIME USE EVER</b> (Local)</li>
+                    <li>🎨 <b>Editor Update:</b> Text Objects & Fonts!</li>
+                    <li>🌌 <b>Gravity Portals</b> & Upside-down Spikes!</li>
+                    <li>❄️ <b>Snow Mode</b> in Studio (Bundle Exclusive)</li>
+                </ul>
+                <button onclick="ui.closeUpdateNews()">AWESOME!</button>
+            </div>
+        </div>
+
+        <!-- Main Menu -->
+        <div id="main-menu" class="overlay hidden">
+            <h1>GEO RUN</h1>
+            <p style="color: #aaa; margin-bottom: 30px;">Hold Space/Click to Jump</p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="editor.open()">New Level</button>
+                <button onclick="ui.showProjects()">My Projects</button>
+            </div>
+            <button onclick="ui.openShop()">Shop</button>
+            <button onclick="ui.showImport()">Load Level ID</button>
+           
+            <div class="credits">Made by Waylon Killpack</div>
+        </div>
+
+        <!-- Shop Menu -->
+        <div id="shop-menu" class="overlay hidden">
+            <h1 style="font-size: 2.5rem;">ITEM SHOP</h1>
+           
+            <!-- Redeem Section -->
+            <div class="redeem-section" style="margin: 0 auto 20px auto;">
+                <h3 style="color: var(--gold); margin:0;">REDEEM GIFT CODE</h3>
+                <p style="color: #ccc; font-size: 0.8rem; margin: 5px 0 15px 0;">Use codes from IRL Gift Cards!</p>
+               
+                <button onclick="ui.show('redeem-warning-modal')" style="margin:0; padding: 10px 20px; font-size: 1rem; border-color: var(--gold); color: var(--gold);">ENTER CODE</button>
+               
+                <div style="margin-top: 15px; font-size: 0.9rem; color: #888; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px;">
+                    <strong>IRL GIFT CARD PRICES:</strong><br>
+                    500 COINS = $0.50<br>
+                    1000 COINS = $1.00
+                </div>
+            </div>
+
+            <div style="width: 100%; display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
+                <button onclick="ui.renderShop('skins')" style="padding: 10px 15px;">Skins</button>
+                <button onclick="ui.renderShop('planes')" style="padding: 10px 15px;">Planes</button>
+                <button onclick="ui.renderShop('trails')" style="padding: 10px 15px;">Trails</button>
+                <button onclick="ui.renderShop('themes')" style="padding: 10px 15px;">Themes</button>
+            </div>
+           
+            <div id="shop-timer">Next Reward: 05:00</div>
+
+            <div id="shop-container" class="shop-grid">
+                <!-- Items populated by JS -->
+            </div>
+
+            <button class="danger" onclick="ui.show('main-menu')" style="margin-top:20px;">Back</button>
+            <input type="file" id="skin-upload" accept="image/*" style="display: none;" onchange="PlayerData.handleImageUpload(this)">
+        </div>
+       
+        <!-- Redeem Warning Modal (Pop Up) -->
+        <div id="redeem-warning-modal" class="overlay hidden">
+            <div id="modal" style="border-color: var(--danger); box-shadow: 0 0 50px rgba(255, 51, 102, 0.4); max-width: 600px;">
+                <h1 style="color: var(--danger); font-size: 3rem; margin-bottom: 10px;">⚠️ WARNING ⚠️</h1>
+               
+                <p style="font-size: 1.3rem; margin: 20px 0; color: #fff; line-height: 1.6; font-weight: bold;">
+                    SHARING THESE CODES WITH ANYONE ELSE WILL GET YOU <br>
+                    <span style="color: var(--danger); text-decoration: underline; font-size: 1.5rem;">PERMANENTLY BANNED</span>.
+                </p>
+               
+                <p style="font-size: 0.9rem; color: #aaa; margin-bottom: 30px;">Codes are 1-time use only. Do not waste them.</p>
+
+                <div class="redeem-input-group" style="flex-direction: column; align-items: center; gap: 15px; width: 100%;">
+                    <input type="text" id="redeem-input" placeholder="ENTER CODE HERE" style="width: 80%; text-align: center; font-size: 1.5rem; letter-spacing: 2px;">
+                    <button onclick="ui.redeemCode()" style="width: 60%; font-size: 1.2rem; background: rgba(255, 215, 0, 0.1); border-color: var(--gold); color: var(--gold);">REDEEM NOW</button>
+                </div>
+               
+                <button class="danger" onclick="ui.openShop()" style="margin-top: 30px;">CANCEL</button>
+            </div>
+        </div>
+
+        <!-- Projects Menu -->
+        <div id="projects-menu" class="overlay hidden">
+            <h1>MY PROJECTS</h1>
+            <div id="projects-list" style="width: 80%; max-width: 600px;"></div>
+            <button class="danger" onclick="ui.show('main-menu')">Back</button>
+        </div>
+
+        <!-- Music Selection Menu -->
+        <div id="music-menu" class="overlay hidden">
+            <h1>SELECT MUSIC</h1>
+            <div id="music-list" style="width: 80%; max-width: 500px; max-height: 300px; overflow-y: auto;"></div>
+            <div style="margin-top: 20px; display: flex; gap: 10px;">
+                <button onclick="document.getElementById('music-upload').click()">Import New MP3</button>
+                <button onclick="ui.show('editor-ui')">Done</button>
+            </div>
+            <input type="file" id="music-upload" accept="audio/*" style="display: none;" onchange="MusicEngine.handleUpload(this)">
+        </div>
+
+        <!-- Win Menu -->
+        <div id="win-menu" class="overlay hidden">
+            <h1 style="color: #00ff00;">LEVEL COMPLETE!</h1>
+            <button onclick="game.restart()">Replay</button>
+            <button onclick="game.quit()">Menu</button>
+        </div>
+
+        <!-- Pause Menu -->
+        <div id="pause-menu" class="overlay hidden">
+            <h1>PAUSED</h1>
+            <button onclick="game.resume()">Resume</button>
+            <button class="danger" onclick="game.quit()">Quit to Menu</button>
+        </div>
+
+        <!-- Editor UI -->
+        <div id="editor-ui">
+            <div id="editor-controls">
+                <button onclick="ui.openMusicMenu()" title="Music Settings" style="padding: 10px 15px;">🎵</button>
+                <button id="btn-toggle-snow" onclick="editor.toggleSnow()" title="Toggle Snow Mode (Bundle Only)" style="padding: 10px 15px;">❄️</button>
+                <button onclick="editor.saveProject()" title="Save Project" style="padding: 10px 15px;">💾</button>
+                <button onclick="editor.testLevel()">Play Test</button>
+                <button onclick="ui.showImport(true)" title="Import Level Code">📥</button>
+                <button onclick="editor.exportLevel()">Get Level ID</button>
+                <button class="danger" onclick="editor.exit()">Exit</button>
+            </div>
+           
+            <!-- Properties Panel -->
+            <div id="properties-panel">
+                <h3>Edit Object</h3>
+               
+                <div id="prop-text-group" class="hidden">
+                    <label>Content:</label>
+                    <input type="text" id="prop-content" oninput="editor.updateProp('content', this.value)">
+                    <label>Text Color:</label>
+                    <input type="color" id="prop-color" oninput="editor.updateProp('color', this.value)">
+                    <label>Font Size:</label>
+                    <input type="number" id="prop-size" value="1" step="0.1" oninput="editor.updateProp('size', this.value)">
+                </div>
+
+                <button class="danger" style="padding: 10px; margin: 0; margin-top: 10px; width: 100%;" onclick="editor.deleteSelected()">Delete</button>
+                <button style="padding: 10px; margin: 0; margin-top: 5px; width: 100%; border-color: #555;" onclick="editor.deselect()">Cancel</button>
+            </div>
+
+            <div id="editor-toolbar">
+                <div class="tool-group">
+                    <button class="tool-btn" onclick="editor.setTool('select')" title="Select/Edit">👆</button>
+                </div>
+                <div class="tool-group">
+                    <button class="tool-btn active" onclick="editor.setTool('block')" title="Block">🟦</button>
+                    <button class="tool-btn" onclick="editor.setTool('spike')" title="Spike">🔺</button>
+                    <button class="tool-btn" onclick="editor.setTool('spike_flip')" title="Upside Down Spike">🔻</button>
+                    <button class="tool-btn" onclick="editor.setTool('orb')" title="Jump Orb">🟡</button>
+                    <button class="tool-btn" onclick="editor.setTool('portal')" title="Ship Portal (Enter)">🌀</button>
+                    <button class="tool-btn" onclick="editor.setTool('portal_exit')" title="Ship Portal (Exit)">🟩</button>
+                    <button class="tool-btn" onclick="editor.setTool('gravity_flip')" title="Gravity Flip (Roof)">⬆️</button>
+                    <button class="tool-btn" onclick="editor.setTool('gravity_normal')" title="Gravity Normal (Floor)">⬇️</button>
+                    <button class="tool-btn" onclick="editor.setTool('text')" title="Text Object">T</button>
+                </div>
+                <div class="tool-group">
+                    <button class="tool-btn" onclick="editor.setTool('start')" title="Start Pos">🚩</button>
+                    <button class="tool-btn" onclick="editor.setTool('finish')" title="Finish Line">🏁</button>
+                </div>
+                <div class="tool-group">
+                    <button class="tool-btn" onclick="editor.setTool('eraser')" title="Eraser">❌</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import/Export Modal -->
+        <div id="modal-overlay" class="overlay hidden">
+            <div id="modal">
+                <h2 id="modal-title">Level ID</h2>
+                <p id="modal-desc">Copy this code to share, or paste one to play.</p>
+                <textarea id="level-data"></textarea>
+                <div style="display: flex; justify-content: center; gap: 10px;">
+                    <button id="modal-action-btn" onclick="ui.loadLevelFromInput()">Play</button>
+                    <button class="danger" onclick="ui.closeModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Save Project Modal -->
+        <div id="save-modal" class="overlay hidden">
+            <div id="modal">
+                <h2>Save Project</h2>
+                <input type="text" id="project-name-input" placeholder="Enter Level Name" style="width: 80%; padding: 10px; font-size: 1.2rem; color: #fff; background: #222; border: 1px solid #555; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: center; gap: 10px;">
+                    <button onclick="editor.confirmSaveProject()">Save</button>
+                    <button class="danger" onclick="ui.show('editor-ui')">Cancel</button>
+                </div>
+            </div>
+        </div>
+       
+        <!-- Delete Confirmation Modal -->
+        <div id="delete-modal-overlay" class="overlay hidden">
+            <div id="delete-modal">
+                <h2 style="color: var(--danger);">DELETE LEVEL?</h2>
+                <p>Are you sure you want to delete this level?<br>This cannot be undone.</p>
+                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
+                    <button class="danger" onclick="ui.confirmDelete()">YES, DELETE</button>
+                    <button onclick="ui.cancelDelete()">NO, CANCEL</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="notification" class="notification">Level Copied!</div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION & CONSTANTS ---
+        const CONSTANTS = {
+            GRAVITY: 0.7,
+            JUMP_FORCE: -13,
+            SPEED: 8, // CHANGED: Integer speed (8) eliminates sub-pixel jitter/glitching
+            TILE_SIZE: 50,
+            PLAYER_SIZE: 40,
+            GRID_H: 14,
+            ORB_JUMP: -15,
+            REWARD_INTERVAL: 30,
+            REWARD_AMOUNT: 1000000,
+            MAX_FALL: 20,
+            SHIP_GRAVITY: 0.35,
+            SHIP_LIFT: -0.6,
+            CEILING_HEIGHT: 150 // Y position for the "roof"
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- MUSIC ENGINE ---
+        const MusicEngine = {
+            ctx: null,
+            interval: null,
+            isPlaying: false,
+            currentSongId: 0,
+            customAudio: null,
+            customDataUrl: null,
+           
+            songs: [
+                {
+                    name: "Neon Rider",
+                    tempo: 130,
+                    bass: [110, 110, 110, 110, 146, 146, 98, 98],
+                    lead: [440, 0, 440, 523, 440, 0, 392, 0]
+                },
+                {
+                    name: "Cyber Float",
+                    tempo: 100,
+                    bass: [65, 0, 65, 0, 73, 0, 87, 0],
+                    lead: [261, 329, 392, 523, 392, 329, 261, 0]
+                },
+                {
+                    name: "Red Alert",
+                    tempo: 150,
+                    bass: [55, 55, 55, 55, 58, 58, 62, 62],
+                    lead: [880, 880, 0, 880, 932, 0, 880, 0]
+                },
+                {
+                    // Bundle Exclusive
+                    name: "Jingle Bells",
+                    id: 'jingle',
+                    bundleOnly: true,
+                    tempo: 200,
+                    bass: [261, 261, 293, 293, 329, 329, 392, 392],
+                    lead: [329, 329, 329, 0, 329, 329, 329, 0, 329, 392, 261, 293, 329, 0, 0, 0]
+                }
+            ],
+
+            init: () => {
+                if (!MusicEngine.ctx) {
+                    MusicEngine.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            },
+
+            handleUpload: (input) => {
+                if (input.files && input.files[0]) {
+                    const file = input.files[0];
+                    const url = URL.createObjectURL(file);
+                    if (MusicEngine.customAudio) {
+                        MusicEngine.customAudio.pause();
+                        URL.revokeObjectURL(MusicEngine.customDataUrl);
+                    }
+                    MusicEngine.customDataUrl = url;
+                    MusicEngine.customAudio = new Audio(url);
+                    MusicEngine.customAudio.loop = true;
+                    editor.songId = 'custom';
+                    ui.showNotification("Custom Song Imported!");
+                    ui.openMusicMenu();
+                }
+            },
+
+            play: (songId) => {
+                MusicEngine.stop();
+                if (!MusicEngine.ctx) MusicEngine.init();
+                if (MusicEngine.ctx.state === 'suspended') MusicEngine.ctx.resume();
+
+                if (songId === 'custom') {
+                    if (MusicEngine.customAudio) {
+                        MusicEngine.isPlaying = true;
+                        MusicEngine.currentSongId = 'custom';
+                        MusicEngine.customAudio.currentTime = 0;
+                        MusicEngine.customAudio.play().catch(e => console.log(e));
+                    } else {
+                        MusicEngine.play(0);
+                    }
+                    return;
+                }
+
+                // Handle Jingle Bells ID
+                let songIndex = songId;
+                if(songId === 'jingle') songIndex = 3;
+
+                MusicEngine.currentSongId = songId;
+                const song = MusicEngine.songs[songIndex] || MusicEngine.songs[0];
+               
+                const stepTime = 60 / song.tempo / 4;
+                let step = 0;
+
+                MusicEngine.isPlaying = true;
+                MusicEngine.interval = setInterval(() => {
+                    if (!MusicEngine.isPlaying) return;
+                   
+                    const now = MusicEngine.ctx.currentTime;
+                    const bassNote = song.bass[step % song.bass.length];
+                    const leadNote = song.lead[step % song.lead.length];
+
+                    if (bassNote > 0) MusicEngine.playTone(bassNote, 'square', 0.1, now, 0.1);
+                    if (leadNote > 0) MusicEngine.playTone(leadNote, 'sawtooth', 0.05, now, 0.1);
+
+                    step++;
+                }, stepTime * 1000);
+            },
+
+            playTone: (freq, type, vol, time, dur) => {
+                const osc = MusicEngine.ctx.createOscillator();
+                const gain = MusicEngine.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, time);
+               
+                gain.gain.setValueAtTime(vol, time);
+                gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
+
+                osc.connect(gain);
+                gain.connect(MusicEngine.ctx.destination);
+               
+                osc.start(time);
+                osc.stop(time + dur);
+            },
+
+            playClick: () => {
+                if (!MusicEngine.ctx) MusicEngine.init();
+                if (MusicEngine.ctx.state === 'suspended') MusicEngine.ctx.resume();
+                const t = MusicEngine.ctx.currentTime;
+                MusicEngine.playTone(600, 'sine', 0.05, t, 0.05);
+            },
+
+            stop: () => {
+                if (MusicEngine.interval) clearInterval(MusicEngine.interval);
+                if (MusicEngine.customAudio) {
+                    MusicEngine.customAudio.pause();
+                    MusicEngine.customAudio.currentTime = 0;
+                }
+                MusicEngine.isPlaying = false;
+            }
+        };
+
+        // --- SHOP & DATA SYSTEM ---
+        const ITEMS = {
+            skins: [
+                { id: 'neon', name: 'Neon (Default)', price: 0, color: '#00ffcc' },
+                { id: 'red', name: 'Crimson', price: 100, color: '#ff3333' },
+                { id: 'gold', name: 'Midas', price: 250, color: '#ffd700' },
+                { id: 'purple', name: 'Void', price: 300, color: '#aa00ff' },
+                { id: 'white', name: 'Ghost', price: 500, color: '#ffffff' },
+                { id: 'custom', name: 'Custom Image', price: 10000, color: '#333', type: 'image' },
+                { id: 'santa', name: 'Santa', price: 0, color: '#cc0000' }
+            ],
+            planes: [
+                { id: 'default', name: 'Standard', price: 0, type: 'plane' },
+                { id: 'rocket', name: 'Rocket', price: 500, type: 'plane' },
+                { id: 'fighter', name: 'Interceptor', price: 1000, type: 'plane' },
+                { id: 'ufo', name: 'UFO', price: 2000, type: 'plane' },
+                { id: 'bird', name: 'Bird', price: 3000, type: 'plane' },
+                { id: 'sleigh', name: 'Sleigh', price: 0, type: 'plane' }
+            ],
+            trails: [
+                { id: 'none', name: 'No Trail', price: 0, type: 'none' },
+                { id: 'dust', name: 'Dust', price: 150, type: 'dust', color: '#888' },
+                { id: 'fire', name: 'Fire', price: 300, type: 'fire', color: '#ff5500' },
+                { id: 'spark', name: 'Sparkles', price: 500, type: 'spark', color: '#ffffaa' },
+                { id: 'snow', name: 'Snow', price: 0, type: 'snow' }
+            ],
+            themes: [
+                { id: 'default', name: 'Standard', price: 0, type: 'theme' },
+                { id: 'christmas', name: 'Christmas Bundle', price: 3500, type: 'theme', pass: true }
+            ]
+        };
+
+        // Generate Codes
+        const VALID_CODES = {
+            // Original
+            'INEEDCOINS': 500,
+            '121513': 1000,
+           
+            // Bundle Codes
+            'SANTA': 'BUNDLE',
+            'RUDOLPH': 'BUNDLE',
+            'FROSTY': 'BUNDLE',
+            'SNOWMAN': 'BUNDLE',
+            'ELFSQUAD': 'BUNDLE',
+
+            // 30 Unique Coin Codes
+            'ALPHA': 100,
+            'BRAVO': 100,
+            'CHARLIE': 100,
+            'DELTA': 200,
+            'ECHO': 200,
+            'FOXTROT': 200,
+            'GOLF': 300,
+            'HOTEL': 300,
+            'INDIA': 300,
+            'JULIETT': 400,
+            'KILO': 400,
+            'LIMA': 400,
+            'MIKE': 500,
+            'NOVEMBER': 500,
+            'OSCAR': 500,
+            'PAPA': 600,
+            'QUEBEC': 600,
+            'ROMEO': 600,
+            'SIERRA': 700,
+            'TANGO': 700,
+            'UNIFORM': 700,
+            'VICTOR': 800,
+            'WHISKEY': 800,
+            'XRAY': 900,
+            'YANKEE': 900,
+            'ZULU': 1000,
+            'OMEGA': 2000,
+            'EPIC': 5000,
+            'LEGEND': 5000,
+            'MYTHIC': 10000,
+            'BLAKE IS THE BEST': 9999999999999,
+        };
+
+        const PlayerData = {
+            coins: 0,
+            playTime: 0,
+            inventory: { skins: ['neon'], trails: ['none'], planes: ['default'], themes: ['default'] },
+            equipped: { skin: 'neon', trail: 'none', plane: 'default', theme: 'default' },
+            customSkinData: null,
+            customSkinImageObj: null,
+            projects: [],
+            nextRewardTime: 0,
+            redeemedCodes: [], // Track redeemed codes locally as well
+
+            load: () => {
+                const saved = localStorage.getItem('geoRunData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    PlayerData.coins = data.coins || 0;
+                    PlayerData.playTime = data.playTime || 0;
+                    PlayerData.inventory = data.inventory || { skins: ['neon'], trails: ['none'], planes: ['default'], themes: ['default'] };
+                    if (!PlayerData.inventory.planes) PlayerData.inventory.planes = ['default'];
+                    if (!PlayerData.inventory.themes) PlayerData.inventory.themes = ['default'];
+                   
+                    PlayerData.equipped = data.equipped || { skin: 'neon', trail: 'none', plane: 'default', theme: 'default' };
+                    if (!PlayerData.equipped.plane) PlayerData.equipped.plane = 'default';
+                    if (!PlayerData.equipped.theme) PlayerData.equipped.theme = 'default';
+
+                    PlayerData.customSkinData = data.customSkinData || null;
+                    PlayerData.projects = data.projects || [];
+                    PlayerData.redeemedCodes = data.redeemedCodes || [];
+                   
+                    if (data.nextRewardTime && data.nextRewardTime > Date.now()) {
+                        PlayerData.nextRewardTime = data.nextRewardTime;
+                    } else {
+                        PlayerData.nextRewardTime = Date.now() + CONSTANTS.REWARD_INTERVAL;
+                    }
+                } else {
+                    PlayerData.nextRewardTime = Date.now() + CONSTANTS.REWARD_INTERVAL;
+                }
+               
+                if (PlayerData.customSkinData) {
+                    PlayerData.loadCustomImage(PlayerData.customSkinData);
+                }
+                ui.updateCoinDisplay();
+            },
+
+            save: () => {
+                localStorage.setItem('geoRunData', JSON.stringify({
+                    coins: PlayerData.coins,
+                    playTime: PlayerData.playTime,
+                    inventory: PlayerData.inventory,
+                    equipped: PlayerData.equipped,
+                    customSkinData: PlayerData.customSkinData,
+                    projects: PlayerData.projects,
+                    nextRewardTime: PlayerData.nextRewardTime,
+                    redeemedCodes: PlayerData.redeemedCodes
+                }));
+                ui.updateCoinDisplay();
+            },
+
+            buy: (category, itemId, price) => {
+                if (PlayerData.coins >= price) {
+                    PlayerData.coins -= price;
+                    PlayerData.inventory[category].push(itemId);
+                    PlayerData.save();
+                    return true;
+                }
+                return false;
+            },
+
+            equip: (category, itemId) => {
+                let key = category.slice(0, -1);
+                // Special case for 'themes' category mapping to 'theme' equipped key
+                if(category === 'themes') key = 'theme';
+                if(category === 'planes') key = 'plane';
+               
+                PlayerData.equipped[key] = itemId;
+                PlayerData.save();
+            },
+
+            addCoins: (amount) => {
+                PlayerData.coins += amount;
+                PlayerData.save();
+            },
+
+            getSkinColor: () => {
+                if (PlayerData.equipped.skin === 'custom') return '#fff';
+                const skin = ITEMS.skins.find(s => s.id === PlayerData.equipped.skin);
+                return skin ? skin.color : '#00ffcc';
+            },
+
+            handleImageUpload: (input) => {
+                if (input.files && input.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        PlayerData.customSkinData = e.target.result;
+                        PlayerData.loadCustomImage(e.target.result);
+                        PlayerData.save();
+                        ui.renderShop('skins');
+                        ui.showNotification("Skin Uploaded!");
+                    };
+                    reader.readAsDataURL(input.files[0]);
+                }
+            },
+
+            loadCustomImage: (base64) => {
+                const img = new Image();
+                img.src = base64;
+                img.onload = () => {
+                    PlayerData.customSkinImageObj = img;
+                };
+            }
+        };
+
+        // --- ASSETS / DRAWING ---
+        const Graphics = {
+            drawPlayer: (ctx, p, x, y) => {
+                ctx.save();
+                // FIX: Use explicit screen coordinates if provided, else fall back to world p.x
+                const drawX = (x !== undefined) ? x : p.x;
+                const drawY = (y !== undefined) ? y : p.y;
+               
+                // FIX: Removed Math.floor to allow smooth sub-pixel rendering (prevents snapping/jitter)
+                ctx.translate(drawX + p.w/2, drawY + p.h/2);
+               
+                if (game.invulnerable) {
+                    ctx.globalAlpha = 0.5 + Math.sin(Date.now() / 50) * 0.3;
+                }
+
+                ctx.rotate(p.rotation);
+
+                if (p.mode === 'ship') {
+                    Graphics.drawShip(ctx, p.w, p.h);
+                } else {
+                    Graphics.drawCube(ctx, p.w, p.h);
+                }
+               
+                ctx.restore();
+            },
+            drawCube: (ctx, w, h) => {
+                if (PlayerData.equipped.skin === 'custom' && PlayerData.customSkinImageObj) {
+                    ctx.drawImage(PlayerData.customSkinImageObj, -w/2, -h/2, w, h);
+                } else {
+                    const color = PlayerData.getSkinColor();
+                    ctx.fillStyle = color;
+                    ctx.shadowColor = color;
+                    ctx.shadowBlur = 15;
+                    ctx.fillRect(-w/2, -h/2, w, h);
+                   
+                    // Determine face color (default black, or dark red for Santa)
+                    let faceColor = '#000';
+                    if (PlayerData.equipped.skin === 'santa') {
+                        faceColor = '#660000'; // Dark Red for Santa
+                    }
+
+                    // Always draw inner face (standard block look)
+                    ctx.fillStyle = faceColor;
+                    ctx.shadowBlur = 0;
+                    ctx.fillRect(-w/6, -h/6, w/3, h/3);
+                }
+            },
+            drawShip: (ctx, w, h) => {
+                const planeType = PlayerData.equipped.plane || 'default';
+                ctx.fillStyle = '#fff';
+               
+                if (planeType === 'default') {
+                    ctx.beginPath();
+                    ctx.moveTo(-25, 10);
+                    ctx.lineTo(25, 10);
+                    ctx.lineTo(15, -15);
+                    ctx.lineTo(-25, -15);
+                    ctx.fill();
+                } else if (planeType === 'rocket') {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, 30, 12, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#aaa';
+                    ctx.fillRect(-35, -5, 10, 10);
+                } else if (planeType === 'fighter') {
+                    ctx.beginPath();
+                    ctx.moveTo(-20, 5);
+                    ctx.lineTo(30, 0);
+                    ctx.lineTo(-20, -5);
+                    ctx.lineTo(-20, -20);
+                    ctx.lineTo(-10, -5);
+                    ctx.fill();
+                } else if (planeType === 'ufo') {
+                    ctx.beginPath();
+                    ctx.ellipse(0, 5, 25, 8, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(0, -5, 12, Math.PI, 0);
+                    ctx.fillStyle = 'rgba(100,200,255,0.5)';
+                    ctx.fill();
+                } else if (planeType === 'bird') {
+                    ctx.fillStyle = 'yellow';
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 15, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = 'orange';
+                    ctx.beginPath();
+                    ctx.moveTo(10, -5);
+                    ctx.lineTo(25, 0);
+                    ctx.lineTo(10, 5);
+                    ctx.fill();
+                } else if (planeType === 'sleigh') {
+                    ctx.fillStyle = '#cc0000';
+                    ctx.fillRect(-20, 0, 40, 10); // Body
+                    ctx.fillStyle = '#ffd700'; // Rails
+                    ctx.fillRect(-25, 12, 50, 3);
+                    ctx.fillRect(-15, 5, 5, 10);
+                    ctx.fillRect(10, 5, 5, 10);
+                }
+
+                // Draw the Pilot
+                ctx.save();
+                if (planeType === 'ufo') ctx.translate(0, -5);
+                else ctx.translate(0, -2);
+               
+                ctx.scale(0.5, 0.5);
+                Graphics.drawCube(ctx, w, h);
+                ctx.restore();
+            },
+            drawBlock: (ctx, x, y, size) => {
+                // REVERTED: Standard Block Style Always (no special xmas block)
+                ctx.fillStyle = '#3333ff';
+                ctx.strokeStyle = '#6666ff';
+                ctx.lineWidth = 2;
+                ctx.fillRect(x, y, size, size);
+                ctx.strokeRect(x, y, size, size);
+                ctx.fillStyle = '#0000aa';
+                ctx.fillRect(x + 5, y + 5, size - 10, size - 10);
+            },
+            drawSpike: (ctx, x, y, size) => {
+                ctx.fillStyle = '#ff3333';
+                ctx.beginPath();
+                ctx.moveTo(x, y + size);
+                ctx.lineTo(x + size / 2, y);
+                ctx.lineTo(x + size, y + size);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#ff9999';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            },
+            drawSpikeFlip: (ctx, x, y, size) => {
+                ctx.fillStyle = '#ff3333';
+                ctx.beginPath();
+                ctx.moveTo(x, y); // Top Left
+                ctx.lineTo(x + size / 2, y + size); // Point down
+                ctx.lineTo(x + size, y); // Top Right
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#ff9999';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            },
+            drawOrb: (ctx, x, y, size) => {
+                const cx = x + size/2;
+                const cy = y + size/2;
+                const r = size/3;
+                const pulse = Math.sin(Date.now() / 200) * 3;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r + pulse, 0, Math.PI * 2);
+                ctx.fillStyle = 'yellow';
+                ctx.shadowColor = 'yellow';
+                ctx.shadowBlur = 20;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r - 5, 0, Math.PI * 2);
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            },
+            drawPortal: (ctx, x, y, size) => {
+                const cx = x + size/2;
+                const cy = y + size/2;
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(Date.now() / 500);
+               
+                ctx.beginPath();
+                ctx.arc(0, 0, size/1.5, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+               
+                ctx.beginPath();
+                ctx.arc(0, 0, size/2.5, 0, Math.PI * 2);
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.restore();
+            },
+            drawPortalExit: (ctx, x, y, size) => {
+                const cx = x + size/2;
+                const cy = y + size/2;
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(-Date.now() / 500);
+               
+                ctx.beginPath();
+                ctx.rect(-size/3, -size/3, size/1.5, size/1.5);
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+               
+                ctx.beginPath();
+                ctx.rect(-size/5, -size/5, size/2.5, size/2.5);
+                ctx.strokeStyle = '#ffff00';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.restore();
+            },
+            drawGravityPortal: (ctx, x, y, size, type) => {
+                const cx = x + size/2;
+                const cy = y + size/2;
+                const color = (type === 'flip') ? '#ffaa00' : '#0088ff'; // Orange vs Blue
+               
+                ctx.save();
+                ctx.translate(cx, cy);
+                // Pulse effect
+                const scale = 1 + Math.sin(Date.now() / 200) * 0.1;
+                ctx.scale(scale, scale);
+               
+                ctx.beginPath();
+                ctx.arc(0, 0, size/2, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.globalAlpha = 0.6;
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+               
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(0, 0, size/2, 0, Math.PI*2);
+                ctx.stroke();
+               
+                // Arrows
+                ctx.fillStyle = '#fff';
+                ctx.beginPath();
+                if(type === 'flip') {
+                    // Up Arrow (Anti-gravity)
+                    ctx.moveTo(-5, 5); ctx.lineTo(0, -5); ctx.lineTo(5, 5);
+                } else {
+                    // Down Arrow (Normal gravity)
+                    ctx.moveTo(-5, -5); ctx.lineTo(0, 5); ctx.lineTo(5, -5);
+                }
+                ctx.fill();
+               
+                ctx.restore();
+            },
+            drawStart: (ctx, x, y, size) => {
+                ctx.fillStyle = '#00ff00';
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(x, y, size, size);
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = '#fff';
+                ctx.font = '20px Arial';
+                ctx.fillText('START', x + 5, y + 30);
+            },
+            drawFinish: (ctx, x, y, size) => {
+                const checkSize = size / 2;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x, y, size, size);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(x, y, checkSize, checkSize);
+                ctx.fillRect(x + checkSize, y + checkSize, checkSize, checkSize);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.fillRect(x + size/2 - 2, 0, 4, y);
+            },
+            drawText: (ctx, x, y, size, obj) => {
+                const text = obj.content || "Text";
+                const color = obj.color || '#fff';
+                const scale = parseFloat(obj.size || 1);
+                // Fixed font to standard Arial
+               
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.font = `bold ${20 * scale}px Arial, sans-serif`;
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 4;
+                ctx.fillText(text, x, y + size);
+                ctx.restore();
+
+                // If in editor, draw anchor
+                if (game.state === 'EDITOR') {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, size, size);
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.font = '10px Arial';
+                    ctx.fillText("T", x+2, y+10);
+                }
+            },
+            drawGrid: (ctx, offsetX) => {
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 1;
+                const startX = Math.floor(offsetX / CONSTANTS.TILE_SIZE) * CONSTANTS.TILE_SIZE;
+                for (let x = startX; x < offsetX + canvas.width + CONSTANTS.TILE_SIZE; x += CONSTANTS.TILE_SIZE) {
+                    ctx.beginPath();
+                    ctx.moveTo(x - offsetX, 0);
+                    ctx.lineTo(x - offsetX, canvas.height);
+                    ctx.stroke();
+                }
+                for (let y = 0; y < canvas.height; y += CONSTANTS.TILE_SIZE) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                // Floor line
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height - CONSTANTS.TILE_SIZE * 2);
+                ctx.lineTo(canvas.width, canvas.height - CONSTANTS.TILE_SIZE * 2);
+                ctx.stroke();
+               
+                // Ceiling line (visual guide for editor)
+                ctx.strokeStyle = '#444';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, CONSTANTS.CEILING_HEIGHT);
+                ctx.lineTo(canvas.width, CONSTANTS.CEILING_HEIGHT);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        };
+
+        // --- GAME ENGINE ---
+        class Game {
+            constructor() {
+                this.state = 'DISCLAIMER';
+                this.level = [];
+                this.camera = { x: 0 };
+                this.player = {
+                    x: 0, y: 0, w: CONSTANTS.PLAYER_SIZE, h: CONSTANTS.PLAYER_SIZE,
+                    dy: 0, grounded: false, rotation: 0, dead: false, mode: 'cube',
+                    gravityDir: 1 // 1 = down, -1 = up
+                };
+                this.floorY = 0;
+                this.particles = [];
+                this.snowParticles = []; // For snow mode
+                this.keys = { space: false };
+                this.invulnerable = false;
+                this.levelSettings = { snow: false };
+               
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                this.loop = this.loop.bind(this);
+                requestAnimationFrame(this.loop);
+            }
+
+            resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                this.floorY = canvas.height - CONSTANTS.TILE_SIZE * 2;
+            }
+
+            startLevel(levelData) {
+                let songId = 0;
+                let actualLevel = [];
+                this.levelSettings.snow = false;
+
+                if (Array.isArray(levelData)) {
+                    actualLevel = levelData;
+                } else if (levelData.d) {
+                    actualLevel = levelData.d;
+                    songId = levelData.s || 0;
+                    if(levelData.snow) this.levelSettings.snow = true;
+                }
+
+                this.level = JSON.parse(JSON.stringify(actualLevel));
+                this.resetPlayer();
+                this.state = 'PLAYING';
+                MusicEngine.play(songId);
+                ui.hideAll();
+                document.getElementById('hud-pause-btn').classList.remove('hidden');
+               
+                // Initialize snow if enabled
+                this.snowParticles = [];
+                if(this.levelSettings.snow) {
+                    for(let i=0; i<50; i++) this.addSnowParticle();
+                }
+            }
+
+            restart() {
+                this.resetPlayer();
+                this.state = 'PLAYING';
+                ui.hideAll();
+                document.getElementById('hud-pause-btn').classList.remove('hidden');
+                MusicEngine.play(MusicEngine.currentSongId);
+            }
+
+            resetPlayer() {
+                let startX = 0;
+                let startY = this.floorY - this.player.h;
+
+                const startObj = this.level.find(o => o.type === 'start');
+                if (startObj) {
+                    startX = startObj.x * CONSTANTS.TILE_SIZE;
+                    startY = this.floorY - (startObj.y * CONSTANTS.TILE_SIZE) - this.player.h + CONSTANTS.TILE_SIZE;
+                }
+
+                this.player.x = startX;
+                this.player.y = startY - 20;
+                this.player.dy = 0;
+                this.player.rotation = 0;
+                this.player.grounded = false;
+                this.player.dead = false;
+                this.player.mode = 'cube';
+                this.player.gravityDir = 1; // Reset gravity
+                this.camera.x = 0;
+                this.particles = [];
+               
+                this.invulnerable = true;
+                setTimeout(() => { this.invulnerable = false; }, 1000);
+            }
+
+            attemptJump() {
+                if (this.player.mode === 'cube') {
+                    if (this.player.grounded) {
+                        // Jump direction depends on gravity
+                        this.player.dy = CONSTANTS.JUMP_FORCE * this.player.gravityDir;
+                        this.player.grounded = false;
+                        this.createParticles(this.player.x, this.player.y + (this.player.gravityDir === 1 ? this.player.h : 0), 5, '#fff');
+                    }
+                   
+                    const pRect = this.getRect();
+                    for(let obj of this.level) {
+                        if (obj.type === 'orb') {
+                            const size = CONSTANTS.TILE_SIZE;
+                            const orbX = obj.x * CONSTANTS.TILE_SIZE;
+                            const orbY = this.floorY - (obj.y * CONSTANTS.TILE_SIZE);
+                            const dx = (pRect.x + pRect.w/2) - (orbX + size/2);
+                            const dy = (pRect.y + pRect.h/2) - (orbY + size/2);
+                            const dist = Math.sqrt(dx*dx + dy*dy);
+                           
+                            if (dist < 60 && !obj.used) {
+                                this.player.dy = CONSTANTS.ORB_JUMP * this.player.gravityDir;
+                                this.player.grounded = false;
+                                obj.used = true;
+                                setTimeout(() => obj.used = false, 500);
+                                this.createParticles(orbX + size/2, orbY + size/2, 10, 'yellow');
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            createParticles(x, y, count, color) {
+                for(let i=0; i<count; i++) {
+                    this.particles.push({
+                        x: x, y: y,
+                        dx: (Math.random() - 0.5) * 5,
+                        dy: (Math.random() - 0.5) * 5,
+                        life: 1.0,
+                        color: color
+                    });
+                }
+            }
+
+            addSnowParticle() {
+                 this.snowParticles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    s: Math.random() * 2 + 1,
+                    r: Math.random() * 2 + 1
+                 });
+            }
+
+            emitTrail() {
+                const trailId = PlayerData.equipped.trail;
+                if (trailId === 'none') return;
+
+                // Handle Snow trail custom logic
+                if (trailId === 'snow') {
+                    if(Math.random() > 0.2) return;
+                    this.particles.push({
+                        x: this.player.x + this.player.w/2 + (Math.random()-0.5)*10,
+                        y: this.player.y + this.player.h/2 + (Math.random()-0.5)*10,
+                        dx: -2,
+                        dy: 1,
+                        life: 1.0,
+                        color: '#fff'
+                    });
+                    return;
+                }
+
+                const trailDef = ITEMS.trails.find(t => t.id === trailId);
+                const color = trailDef ? trailDef.color : '#fff';
+               
+                if (Math.random() > 0.3) return;
+
+                this.particles.push({
+                    x: this.player.x + this.player.w/2 + (Math.random()-0.5)*10,
+                    y: this.player.y + this.player.h/2 + (Math.random()-0.5)*10,
+                    dx: -CONSTANTS.SPEED * 0.5,
+                    dy: (Math.random() - 0.5) * 2,
+                    life: 0.6,
+                    color: color
+                });
+            }
+
+            update() {
+                if (this.state !== 'PLAYING') return;
+
+                const p = this.player;
+
+                if (p.mode === 'cube') {
+                    if (this.keys.space || this.keys.mouse) {
+                        this.attemptJump();
+                    }
+                    // Apply gravity based on direction
+                    p.dy += CONSTANTS.GRAVITY * p.gravityDir;
+                   
+                    if (!p.grounded) {
+                        p.rotation += 0.18 * p.gravityDir;
+                    } else {
+                        const nearest90 = Math.round(p.rotation / (Math.PI/2)) * (Math.PI/2);
+                        p.rotation = nearest90;
+                    }
+                } else if (p.mode === 'ship') {
+                    p.dy += CONSTANTS.SHIP_GRAVITY * p.gravityDir;
+                    if (this.keys.space || this.keys.mouse) {
+                        p.dy += CONSTANTS.SHIP_LIFT * p.gravityDir;
+                    }
+                    const targetRot = p.dy * 0.1;
+                    p.rotation += (targetRot - p.rotation) * 0.1;
+                }
+
+                p.x += CONSTANTS.SPEED;
+               
+                // Max Fall Speed Clamp
+                if (p.gravityDir === 1 && p.dy > CONSTANTS.MAX_FALL) p.dy = CONSTANTS.MAX_FALL;
+                if (p.gravityDir === -1 && p.dy < -CONSTANTS.MAX_FALL) p.dy = -CONSTANTS.MAX_FALL;
+
+                p.y += p.dy;
+
+                this.emitTrail();
+                this.camera.x = p.x - 200;
+
+                // --- FLOOR / CEILING COLLISION ---
+                const floorLimit = this.floorY - 2;
+                const ceilingLimit = CONSTANTS.CEILING_HEIGHT + 2;
+
+                if (p.gravityDir === 1) {
+                    // Normal Gravity (Floor)
+                    if (p.y + p.h > floorLimit) {
+                        if (p.mode === 'ship') {
+                            this.die();
+                        } else {
+                            p.y = this.floorY - p.h; // Snap to floor
+                            p.dy = 0;
+                            p.grounded = true;
+                            if(p.mode === 'cube') {
+                                const nearest90 = Math.round(p.rotation / (Math.PI/2)) * (Math.PI/2);
+                                p.rotation = nearest90;
+                            }
+                        }
+                    } else {
+                        p.grounded = false;
+                    }
+                } else {
+                    // Inverted Gravity (Ceiling)
+                    if (p.y < ceilingLimit) {
+                        if (p.mode === 'ship') {
+                            this.die();
+                        } else {
+                            p.y = ceilingLimit; // Snap to ceiling
+                            p.dy = 0;
+                            p.grounded = true;
+                            if(p.mode === 'cube') {
+                                const nearest90 = Math.round(p.rotation / (Math.PI/2)) * (Math.PI/2);
+                                p.rotation = nearest90;
+                            }
+                        }
+                    } else {
+                        p.grounded = false;
+                    }
+                }
+               
+                // Out of bounds check
+                if (p.y < -1000 || p.y > canvas.height + 500) {
+                     this.die();
+                }
+
+                const pRect = this.getRect();
+                const relevantObjs = this.level.filter(o =>
+                    (o.x * CONSTANTS.TILE_SIZE) > p.x - 300 &&
+                    (o.x * CONSTANTS.TILE_SIZE) < p.x + 300
+                );
+
+                for (let obj of relevantObjs) {
+                    const size = CONSTANTS.TILE_SIZE;
+                    const ox = obj.x * CONSTANTS.TILE_SIZE;
+                    const oy = this.floorY - (obj.y * CONSTANTS.TILE_SIZE);
+
+                    if (obj.type === 'text' || obj.type === 'start') continue;
+
+                    // Hitbox check
+                    if (this.checkRectOverlap(pRect, {x: ox, y: oy, w: size, h: size})) {
+                        if (obj.type === 'spike') {
+                            this.die();
+                        }
+                        else if (obj.type === 'spike_flip') {
+                            // Simple hitbox check same as spike for now
+                            this.die();
+                        }
+                        else if (obj.type === 'finish') {
+                            this.win();
+                        }
+                        else if (obj.type === 'portal') {
+                            if (p.mode !== 'ship') {
+                                p.mode = 'ship';
+                                this.createParticles(ox + size/2, oy + size/2, 20, '#ff00ff');
+                            }
+                        }
+                        else if (obj.type === 'portal_exit') {
+                            if (p.mode !== 'cube') {
+                                p.mode = 'cube';
+                                const nearest90 = Math.round(p.rotation / (Math.PI/2)) * (Math.PI/2);
+                                p.rotation = nearest90;
+                                this.createParticles(ox + size/2, oy + size/2, 20, '#00ff00');
+                            }
+                        }
+                        else if (obj.type === 'gravity_flip') {
+                            if (p.gravityDir === 1) {
+                                p.gravityDir = -1;
+                                this.createParticles(ox + size/2, oy + size/2, 20, '#ffaa00');
+                            }
+                        }
+                        else if (obj.type === 'gravity_normal') {
+                            if (p.gravityDir === -1) {
+                                p.gravityDir = 1;
+                                this.createParticles(ox + size/2, oy + size/2, 20, '#0088ff');
+                            }
+                        }
+                        else if (obj.type === 'block') {
+                            const overlapLeft = (pRect.x + pRect.w) - ox;
+                            const overlapRight = (ox + size) - pRect.x;
+                            const overlapTop = (pRect.y + pRect.h) - oy;
+                            const overlapBottom = (oy + size) - pRect.y;
+
+                            const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+                            // Collision Resolution
+                            if (minOverlap === overlapTop || (p.dy > 0 && overlapTop < 20)) {
+                                // Land on top
+                                if (p.dy >= 0 && p.gravityDir === 1) {
+                                    p.y = oy - p.h + this.getHitboxInset();
+                                    p.dy = 0;
+                                    p.grounded = true;
+                                    if(p.mode === 'ship') p.rotation = 0;
+                                } else {
+                                     // Hitting top while upside down -> hit head (die?) or slide?
+                                     // For simplicity: treating as solid wall/ceiling
+                                     if(p.gravityDir === -1) this.die();
+                                }
+                            } else if (minOverlap === overlapBottom) {
+                                // Land on bottom (if inverted)
+                                if(p.dy <= 0 && p.gravityDir === -1) {
+                                     p.y = oy + size - this.getHitboxInset();
+                                     p.dy = 0;
+                                     p.grounded = true;
+                                     if(p.mode === 'ship') p.rotation = 0;
+                                } else {
+                                     // Hit ceiling (normal gravity)
+                                     p.y = oy + size - this.getHitboxInset();
+                                     p.dy = 0;
+                                }
+                            } else if (minOverlap === overlapLeft) {
+                                // Hit wall (dead)
+                                this.die();
+                            }
+                        }
+                    }
+                }
+            }
+
+            checkRectOverlap(r1, r2) {
+                return (r1.x < r2.x + r2.w &&
+                        r1.x + r1.w > r2.x &&
+                        r1.y < r2.y + r2.h &&
+                        r1.y + r1.h > r2.y);
+            }
+
+            getHitboxInset() {
+                return 8;
+            }
+
+            getRect() {
+                const inset = this.getHitboxInset();
+                return {
+                    x: this.player.x + inset,
+                    y: this.player.y + inset,
+                    w: this.player.w - (inset*2),
+                    h: this.player.h - (inset*2)
+                };
+            }
+
+            die() {
+                if (this.state === 'DEAD' || this.invulnerable) return;
+                this.state = 'DEAD';
+                MusicEngine.stop();
+                this.createParticles(this.player.x + 20, this.player.y + 20, 50, PlayerData.getSkinColor());
+                setTimeout(() => {
+                    this.resetPlayer();
+                    this.state = 'PLAYING';
+                    MusicEngine.play(MusicEngine.currentSongId);
+                }, 600);
+            }
+
+            win() {
+                if (this.state === 'WIN') return;
+                this.state = 'WIN';
+                // PlayerData.addCoins(CONSTANTS.REWARD); // Removed win reward
+                ui.show('win-menu');
+                document.getElementById('hud-pause-btn').classList.add('hidden');
+            }
+
+            pause() {
+                if(this.state === 'PLAYING') {
+                    this.state = 'PAUSED';
+                    ui.show('pause-menu');
+                    MusicEngine.stop();
+                    document.getElementById('hud-pause-btn').classList.add('hidden');
+                }
+            }
+
+            resume() {
+                if(this.state === 'PAUSED') {
+                    this.state = 'PLAYING';
+                    ui.hideAll();
+                    document.getElementById('hud-pause-btn').classList.remove('hidden');
+                    if (MusicEngine.ctx) MusicEngine.ctx.resume();
+                    MusicEngine.play(MusicEngine.currentSongId);
+                }
+            }
+
+            quit() {
+                this.state = 'MENU';
+                MusicEngine.stop();
+                // MusicEngine.play('jingle'); // REMOVED: Lobby Music
+                ui.show('main-menu');
+                document.getElementById('hud-pause-btn').classList.add('hidden');
+            }
+
+            checkReward() {
+                if (Date.now() >= PlayerData.nextRewardTime) {
+                    PlayerData.addCoins(CONSTANTS.REWARD_AMOUNT);
+                    PlayerData.playTime += 5;
+                    // Reset timer
+                    PlayerData.nextRewardTime = Date.now() + CONSTANTS.REWARD_INTERVAL;
+                    PlayerData.save();
+                   
+                    ui.showNotification("Time Reward: +100000 Coins!");
+                    ui.updateCoinDisplay();
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.save(); // -- START CAMERA TRANSFORM --
+               
+                let camX = this.camera.x;
+                if (this.state === 'EDITOR') {
+                    camX = editor.cameraX;
+                    Graphics.drawGrid(ctx, camX);
+                }
+
+                // Camera translation (can keep floor here for background sharpness, or remove for smoothness)
+                // We'll remove floor here too for consistent smooth rendering
+                ctx.translate(-camX, 0);
+
+                // Draw Floor
+                if (PlayerData.equipped.theme === 'christmas') {
+                    ctx.fillStyle = '#eef'; // Snowy floor
+                } else {
+                    ctx.fillStyle = '#fff';
+                }
+                ctx.fillRect(camX, this.floorY, canvas.width, 2);
+                ctx.fillStyle = '#16213e';
+                ctx.fillRect(camX, this.floorY, canvas.width, canvas.height - this.floorY);
+
+                // Draw Ceiling (if Inverted) - Visual Guide
+                if (this.player.gravityDir === -1 || this.state === 'EDITOR') {
+                    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                    ctx.fillRect(camX, 0, canvas.width, CONSTANTS.CEILING_HEIGHT);
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(camX, CONSTANTS.CEILING_HEIGHT, canvas.width, 2);
+                }
+
+                // Draw Objects
+                const startTile = Math.floor(camX / CONSTANTS.TILE_SIZE);
+                const endTile = startTile + Math.floor(canvas.width / CONSTANTS.TILE_SIZE) + 2;
+
+                const renderList = (this.state === 'EDITOR' ? editor.level : this.level);
+
+                for (let obj of renderList) {
+                    if (obj.x >= startTile - 5 && obj.x <= endTile + 5) {
+                        const size = CONSTANTS.TILE_SIZE;
+                        const drawX = obj.x * CONSTANTS.TILE_SIZE;
+                        const drawY = this.floorY - (obj.y * CONSTANTS.TILE_SIZE);
+
+                        ctx.save();
+                       
+                        if (obj.type === 'block') Graphics.drawBlock(ctx, drawX, drawY, size);
+                        if (obj.type === 'spike') Graphics.drawSpike(ctx, drawX, drawY, size);
+                        if (obj.type === 'spike_flip') Graphics.drawSpikeFlip(ctx, drawX, drawY, size);
+                        if (obj.type === 'orb') Graphics.drawOrb(ctx, drawX, drawY, size);
+                        if (obj.type === 'portal') Graphics.drawPortal(ctx, drawX, drawY, size);
+                        if (obj.type === 'portal_exit') Graphics.drawPortalExit(ctx, drawX, drawY, size);
+                        if (obj.type === 'gravity_flip') Graphics.drawGravityPortal(ctx, drawX, drawY, size, 'flip');
+                        if (obj.type === 'gravity_normal') Graphics.drawGravityPortal(ctx, drawX, drawY, size, 'normal');
+                        if (obj.type === 'start') Graphics.drawStart(ctx, drawX, drawY, size);
+                        if (obj.type === 'finish') Graphics.drawFinish(ctx, drawX, drawY, size);
+                        if (obj.type === 'text') Graphics.drawText(ctx, drawX, drawY, CONSTANTS.TILE_SIZE, obj);
+                       
+                        ctx.restore();
+
+                        // Selection Outline
+                        if (this.state === 'EDITOR' && editor.selectedObject === obj) {
+                            ctx.save();
+                            ctx.strokeStyle = '#fff';
+                            ctx.lineWidth = 3;
+                            ctx.setLineDash([5, 3]);
+                            ctx.strokeRect(drawX - 2, drawY - 2, size + 4, size + 4);
+                            ctx.restore();
+                        }
+                    }
+                }
+
+                // Draw Particles (World Space)
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    const p = this.particles[i];
+                    p.life -= 0.02;
+                    p.x += p.dx;
+                    p.y += p.dy;
+                   
+                    ctx.fillStyle = p.color;
+                    ctx.globalAlpha = p.life;
+                    ctx.fillRect(p.x, p.y, 4, 4);
+                   
+                    if (p.life <= 0) this.particles.splice(i, 1);
+                }
+                ctx.globalAlpha = 1.0;
+
+                ctx.restore(); // -- END CAMERA TRANSFORM (Back to Screen Space) --
+
+                // FIX: Draw Player in Screen Space to eliminate sideways jitter
+                if (this.state === 'PLAYING' || this.state === 'DEAD' || this.state === 'WIN') {
+                    if (this.state !== 'DEAD') {
+                        // Calculate screen position: WorldPos - CameraPos
+                        // When playing, (p.x - camX) will mathematically always be 200, ensuring 0 jitter.
+                        const screenX = this.player.x - camX;
+                        const screenY = this.player.y;
+                        Graphics.drawPlayer(ctx, this.player, screenX, screenY);
+                    }
+                }
+
+                // Draw Snow Particles (Screen Space Overlay)
+                if (this.levelSettings.snow || (this.state === 'EDITOR' && editor.snowEnabled)) {
+                    // ctx.restore() was already called above, so we are safely in screen space
+                   
+                    ctx.fillStyle = "white";
+                    for(let p of this.snowParticles) {
+                        p.y += p.s;
+                        p.x += Math.sin(p.y * 0.05) * 0.5;
+                        if(p.y > canvas.height) { p.y = -5; p.x = Math.random() * canvas.width; }
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    if(this.snowParticles.length === 0) {
+                         for(let i=0; i<50; i++) this.addSnowParticle();
+                    }
+                }
+            }
+
+            loop() {
+                this.update();
+                this.draw();
+                if (this.state === 'EDITOR') editor.update();
+                ui.updateShopTimer();
+                this.checkReward(); // Check every frame
+                requestAnimationFrame(this.loop);
+            }
+        }
+
+        // --- EDITOR SYSTEM ---
+        class Editor {
+            constructor() {
+                this.level = [];
+                this.tool = 'block';
+                this.cameraX = 0;
+                this.mouse = { x: 0, y: 0 };
+                this.gridPos = { x: 0, y: 0 };
+                this.selectedObject = null;
+                this.currentProjectName = null;
+                this.currentProjectIndex = -1;
+                this.songId = 0;
+                this.snowEnabled = false; // New property
+               
+                // Input handling
+                canvas.addEventListener('mousedown', (e) => this.handleClick(e));
+                canvas.addEventListener('mousemove', (e) => this.handleMove(e));
+                window.addEventListener('keydown', (e) => {
+                    if (game.state === 'EDITOR') {
+                        if (e.key === 'ArrowRight') this.cameraX += 20;
+                        if (e.key === 'ArrowLeft') this.cameraX -= 20;
+                    }
+                });
+               
+                canvas.addEventListener('wheel', (e) => {
+                    if(game.state === 'EDITOR') {
+                        this.cameraX += e.deltaY;
+                        if(this.cameraX < 0) this.cameraX = 0;
+                    }
+                });
+            }
+
+            open(levelData = null, index = -1) {
+                game.state = 'EDITOR';
+                this.cameraX = 0;
+                game.levelSettings.snow = false; // FIX: Ensure game logic doesn't override editor view
+                ui.show('editor-ui');
+               
+                if (levelData) {
+                    if (Array.isArray(levelData)) {
+                        this.level = JSON.parse(JSON.stringify(levelData));
+                        this.songId = 0;
+                        this.snowEnabled = false;
+                    } else if (levelData.d) {
+                        this.level = JSON.parse(JSON.stringify(levelData.d));
+                        this.songId = levelData.s || 0;
+                        this.snowEnabled = levelData.snow || false;
+                    }
+                    this.currentProjectIndex = index;
+                } else {
+                    this.level = [];
+                    this.level.push({type: 'start', x: 2, y: 1});
+                    this.level.push({type: 'finish', x: 20, y: 1});
+                    this.currentProjectIndex = -1;
+                    this.songId = 0;
+                    this.snowEnabled = false;
+                }
+                this.updateSnowButton();
+            }
+
+            exit() {
+                game.state = 'MENU';
+                ui.show('main-menu');
+                document.getElementById('properties-panel').style.display = 'none';
+                this.selectedObject = null;
+                this.currentProjectIndex = -1;
+                MusicEngine.stop();
+            }
+
+            toggleSnow() {
+                if(!PlayerData.inventory.themes.includes('christmas')) {
+                    ui.showNotification("Buy Christmas Bundle to unlock!");
+                    return;
+                }
+                this.snowEnabled = !this.snowEnabled;
+                this.updateSnowButton();
+                ui.showNotification(this.snowEnabled ? "Snow Mode ON" : "Snow Mode OFF");
+               
+                // Init particles for preview if needed
+                if(game.snowParticles.length === 0) {
+                    for(let i=0; i<50; i++) game.addSnowParticle();
+                }
+            }
+
+            updateSnowButton() {
+                const btn = document.getElementById('btn-toggle-snow');
+                if(this.snowEnabled) btn.classList.add('active');
+                else btn.classList.remove('active');
+            }
+
+            testLevel() {
+                if(this.level.length === 0) return;
+                const packet = { s: this.songId, d: this.level, snow: this.snowEnabled };
+                game.startLevel(packet);
+            }
+
+            setTool(t) {
+                this.tool = t;
+                document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+               
+                const buttons = document.querySelectorAll('.tool-btn');
+                let idx = 0;
+                // Updated Mapping
+                if(t === 'select') idx = 0;
+                if(t === 'block') idx = 1;
+                if(t === 'spike') idx = 2;
+                if(t === 'spike_flip') idx = 3;
+                if(t === 'orb') idx = 4;
+                if(t === 'portal') idx = 5;
+                if(t === 'portal_exit') idx = 6;
+                if(t === 'gravity_flip') idx = 7;
+                if(t === 'gravity_normal') idx = 8;
+                if(t === 'text') idx = 9;
+               
+                // Next groups
+                if(t === 'start') idx = 10;
+                if(t === 'finish') idx = 11;
+                if(t === 'eraser') idx = 12;
+               
+                if(buttons[idx]) buttons[idx].classList.add('active');
+
+                if (t !== 'select') {
+                    this.deselect();
+                }
+            }
+
+            updateScale(val) {
+                // Disabled
+            }
+
+            handleMove(e) {
+                if (game.state !== 'EDITOR') return;
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left + this.cameraX;
+                const my = e.clientY - rect.top;
+               
+                const tx = Math.floor(mx / CONSTANTS.TILE_SIZE);
+                const groundY = game.floorY;
+                const ty = Math.floor((groundY - my) / CONSTANTS.TILE_SIZE) + 1;
+               
+                this.gridPos = { x: tx, y: ty };
+            }
+
+            handleClick(e) {
+                if (game.state !== 'EDITOR') return;
+               
+                if (e.target !== canvas) return;
+
+                const gx = this.gridPos.x;
+                const gy = this.gridPos.y;
+
+                if (this.tool === 'select') {
+                    this.trySelect(gx, gy);
+                    return;
+                }
+
+                if (this.tool === 'eraser') {
+                    const idx = this.level.findIndex(o => Math.abs(o.x - gx) < 1 && Math.abs(o.y - gy) < 1);
+                    if (idx !== -1) this.level.splice(idx, 1);
+                    return;
+                }
+
+                // Place object
+                const obj = {
+                    type: this.tool,
+                    x: gx,
+                    y: gy
+                };
+               
+                if (this.tool === 'text') {
+                    obj.content = "Text";
+                    obj.color = "#ffffff";
+                    obj.size = 1;
+                }
+
+                // Don't place duplicates exact same spot
+                const existing = this.level.findIndex(o => o.x === gx && o.y === gy);
+                if (existing !== -1) this.level.splice(existing, 1);
+
+                this.level.push(obj);
+            }
+
+            trySelect(gx, gy) {
+                const found = this.level.find(o => {
+                    const s = 1;
+                    return (gx >= o.x && gx < o.x + s && gy >= o.y && gy < o.y + s);
+                });
+
+                if (found) {
+                    this.selectObject(found);
+                } else {
+                    this.deselect();
+                }
+            }
+
+            selectObject(obj) {
+                this.selectedObject = obj;
+                const panel = document.getElementById('properties-panel');
+                panel.style.display = 'flex';
+
+                const textGroup = document.getElementById('prop-text-group');
+                // FIX: Use classList to handle visibility because .hidden uses !important
+                // This ensures the input fields actually become visible
+                if (obj.type === 'text') {
+                    textGroup.classList.remove('hidden');
+                    document.getElementById('prop-content').value = obj.content || "";
+                    document.getElementById('prop-color').value = obj.color || "#ffffff";
+                    document.getElementById('prop-size').value = obj.size || 1;
+                    document.getElementById('prop-content').focus();
+                } else {
+                    textGroup.classList.add('hidden');
+                }
+            }
+
+            deselect() {
+                this.selectedObject = null;
+                document.getElementById('properties-panel').style.display = 'none';
+            }
+
+            updateProp(prop, value) {
+                if (!this.selectedObject) return;
+                if (prop === 'content') this.selectedObject.content = value;
+                if (prop === 'color') this.selectedObject.color = value;
+                if (prop === 'size') this.selectedObject.size = value;
+            }
+
+            deleteSelected() {
+                if (this.selectedObject) {
+                    const idx = this.level.indexOf(this.selectedObject);
+                    if (idx > -1) this.level.splice(idx, 1);
+                    this.deselect();
+                }
+            }
+
+            update() {
+                // Draw cursor preview
+                if (this.tool !== 'select') {
+                    const drawX = (this.gridPos.x * CONSTANTS.TILE_SIZE) - this.cameraX;
+                    const drawY = game.floorY - (this.gridPos.y * CONSTANTS.TILE_SIZE);
+                    const size = CONSTANTS.TILE_SIZE;
+                   
+                    ctx.save();
+                    ctx.globalAlpha = 0.5;
+                    ctx.strokeStyle = (this.tool === 'eraser') ? '#ff3366' : '#fff';
+                    if (this.tool === 'eraser') ctx.lineWidth = 3;
+                    ctx.strokeRect(drawX, drawY, size, size);
+                    ctx.restore();
+                }
+            }
+
+            exportLevel() {
+                if (this.level.length < 2) {
+                    alert("Level too empty!");
+                    return;
+                }
+                const exportData = {
+                    s: this.songId,
+                    d: this.level,
+                    snow: this.snowEnabled
+                };
+               
+                const data = btoa(JSON.stringify(exportData));
+                ui.showExport(data);
+            }
+
+            loadLevelFromInput(inputStr) {
+                // Used by main menu load and editor import
+                try {
+                    const data = JSON.parse(atob(inputStr));
+                    if(game.state === 'EDITOR') {
+                        // Load into editor
+                        this.open(data);
+                        ui.showNotification("Level Imported to Editor!");
+                    } else {
+                        // Play level
+                        game.startLevel(data);
+                    }
+                } catch(e) {
+                    alert("Invalid Level Code");
+                }
+            }
+
+            saveProject() {
+                // If already editing a loaded project, save directly
+                if (this.currentProjectIndex > -1) {
+                    this.performSave(PlayerData.projects[this.currentProjectIndex].name);
+                } else {
+                    // New project, show custom modal instead of prompt()
+                    document.getElementById('project-name-input').value = "My Level " + (PlayerData.projects.length + 1);
+                    ui.show('save-modal');
+                }
+            }
+
+            confirmSaveProject() {
+                const name = document.getElementById('project-name-input').value || "Untitled";
+                this.performSave(name);
+                ui.show('editor-ui');
+            }
+
+            performSave(name) {
+                const project = {
+                    name: name,
+                    date: Date.now(),
+                    data: {
+                        s: this.songId,
+                        d: JSON.parse(JSON.stringify(this.level)),
+                        snow: this.snowEnabled
+                    }
+                };
+
+                if (this.currentProjectIndex > -1) {
+                    PlayerData.projects[this.currentProjectIndex] = project;
+                } else {
+                    PlayerData.projects.push(project);
+                    this.currentProjectIndex = PlayerData.projects.length - 1;
+                }
+
+                PlayerData.save();
+                ui.showNotification("Project Saved!");
+            }
+        }
+
+        // --- UI MANAGER ---
+        const ui = {
+            pendingDeleteIndex: -1,
+
+            hideAll: () => {
+                document.querySelectorAll('.overlay').forEach(el => el.classList.add('hidden'));
+                document.getElementById('editor-ui').style.display = 'none';
+            },
+            show: (id) => {
+                ui.hideAll();
+                document.getElementById(id).classList.remove('hidden');
+                if (id === 'editor-ui') document.getElementById('editor-ui').style.display = 'block';
+            },
+            closeDisclaimer: () => {
+                ui.show('update-news');
+            },
+            closeUpdateNews: () => {
+                MusicEngine.init();
+                // MusicEngine.play('jingle'); // REMOVED: Lobby Music
+                ui.show('main-menu');
+            },
+            openShop: () => {
+                ui.renderShop('skins');
+                ui.show('shop-menu');
+            },
+            redeemCode: () => { // UPDATED FOR OFFLINE
+                const input = document.getElementById('redeem-input');
+                const code = input.value.trim().toUpperCase();
+
+               
+
+                // 2. Format Validity Check
+                if (!VALID_CODES[code]) {
+                    ui.showNotification("Invalid Code");
+                    return;
+                }
+
+                // 3. Grant Reward
+                const reward = VALID_CODES[code];
+
+                if (reward === 'BUNDLE') {
+                    if (!PlayerData.inventory.themes.includes('christmas')) {
+                        PlayerData.inventory.themes.push('christmas');
+                        ui.showNotification("UNLOCKED CHRISTMAS BUNDLE!");
+                    } else {
+                        PlayerData.addCoins(3500);
+                        ui.showNotification("BUNDLE OWNED -> +3500 COINS!");
+                    }
+                } else {
+                    PlayerData.addCoins(reward);
+                    ui.showNotification(`SUCCESS! +${reward} COINS!`);
+                }
+
+                // 4. Save State
+                PlayerData.redeemedCodes.push(code);
+                PlayerData.save();
+                input.value = "";
+               
+                // Go back to shop to show coins
+                ui.openShop();
+            },
+            updateShopTimer: () => {
+                const el = document.getElementById('shop-timer');
+                if (el && !document.getElementById('shop-menu').classList.contains('hidden')) {
+                    const diff = Math.max(0, PlayerData.nextRewardTime - Date.now());
+                    const mins = Math.floor(diff / 60000);
+                    const secs = Math.floor((diff % 60000) / 1000);
+                    el.innerText = `Next Reward: ${mins}:${secs.toString().padStart(2, '0')}`;
+                }
+            },
+            openMusicMenu: () => {
+                const list = document.getElementById('music-list');
+                list.innerHTML = '';
+               
+                MusicEngine.songs.forEach((song, idx) => {
+                    const isLocked = song.bundleOnly && !PlayerData.inventory.themes.includes('christmas');
+                   
+                    const btn = document.createElement('button');
+                    btn.className = `song-btn ${editor.songId === idx ? 'active' : ''} ${isLocked ? 'locked' : ''}`;
+                    btn.innerHTML = `
+                        <span>${song.name} ${isLocked ? '🔒' : ''}</span>
+                        <span style="font-size:0.8rem; color:#aaa;">${song.tempo} BPM</span>
+                    `;
+                    btn.onclick = () => {
+                        if(isLocked) {
+                            ui.showNotification("Requires Christmas Bundle!");
+                            return;
+                        }
+                        editor.songId = idx;
+                        ui.openMusicMenu();
+                        MusicEngine.play(idx);
+                        setTimeout(() => MusicEngine.stop(), 2000);
+                    };
+                    list.appendChild(btn);
+                });
+
+                // Custom Song Button
+                const btn = document.createElement('button');
+                const isCustom = editor.songId === 'custom';
+                btn.className = 'song-btn ' + (isCustom ? 'active' : '');
+                btn.innerHTML = `<span>Custom MP3</span> <span style="font-size:0.8rem; color:#aaa;">${MusicEngine.customAudio ? 'Loaded' : 'None'}</span>`;
+                btn.onclick = () => {
+                    if (MusicEngine.customAudio) {
+                        editor.songId = 'custom';
+                        ui.openMusicMenu();
+                        MusicEngine.play('custom');
+                    } else {
+                        document.getElementById('music-upload').click();
+                    }
+                };
+                list.appendChild(btn);
+               
+                ui.show('music-menu');
+            },
+            renderShop: (category) => {
+                const container = document.getElementById('shop-container');
+                container.innerHTML = '';
+               
+                // If Christmas Pass Category
+                if (category === 'themes') {
+                    // FIX: Switch to block layout for Battle Pass
+                    container.className = '';
+                   
+                    const unlocked = PlayerData.inventory.themes.includes('christmas');
+                   
+                    if (!unlocked) {
+                        // Buy Page
+                        container.innerHTML = `
+                            <div style="text-align: center; width: 100%;">
+                                <h2 style="color: #00ffcc; margin-bottom: 20px;">CHRISTMAS BATTLE PASS</h2>
+                                <p style="margin-bottom: 20px;">Unlock exclusive skins, trails, and themes!</p>
+                                <div class="shop-item" style="max-width: 300px; margin: 0 auto;" onclick="if(PlayerData.buy('themes', 'christmas', 3500)) ui.renderShop('themes'); else alert('Not enough coins!')">
+                                    <div class="item-preview" style="font-size: 50px; width: 100%; height: auto; border: none; background: none;">🎄</div>
+                                    <h3>Purchase Pass</h3>
+                                    <p>3500 Coins</p>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // BATTLE PASS TRACK UI
+                        let html = `<div style="width:100%; text-align:center;"><h2 style="color: gold; text-shadow:0 0 10px gold;">BATTLE PASS ACTIVE</h2><p>Play more to unlock rewards!</p></div>`;
+                        html += `<div class="pass-track">`;
+                       
+                        const tiers = [
+                            { level: 0, type: 'theme', id: 'christmas', name: 'Xmas Theme', icon: '🎁' },
+                            { level: 5, type: 'skin', id: 'santa', name: 'Santa Skin', icon: '🎅' },
+                            { level: 10, type: 'trail', id: 'snow', name: 'Snow Trail', icon: '❄️' },
+                            { level: 15, type: 'plane', id: 'sleigh', name: 'Sleigh', icon: '🛷' }
+                        ];
+
+                        const playedMins = PlayerData.playTime;
+
+                        tiers.forEach((tier, i) => {
+                            const isUnlocked = playedMins >= tier.level;
+                            const statusClass = isUnlocked ? 'unlocked' : 'locked';
+                           
+                            // Check if equipped
+                            let isEquipped = false;
+                            if (tier.type === 'theme') isEquipped = PlayerData.equipped.theme === tier.id;
+                            if (tier.type === 'skin') isEquipped = PlayerData.equipped.skin === tier.id;
+                            if (tier.type === 'trail') isEquipped = PlayerData.equipped.trail === tier.id;
+                            if (tier.type === 'plane') isEquipped = PlayerData.equipped.plane === tier.id;
+
+                            // Auto-add to inventory if unlocked but not present (safe check)
+                            // This ensures logic works if they played enough time
+                            if (isUnlocked) {
+                                const catKey = tier.type + 's'; // skins, trails, planes, themes
+                                if (!PlayerData.inventory[catKey].includes(tier.id)) {
+                                    PlayerData.inventory[catKey].push(tier.id);
+                                    PlayerData.save();
+                                }
+                            }
+
+                            const isEquippedStr = isEquipped ? 'true' : 'false';
+                           
+                            // CORRECTED DEFAULT FALLBACK FOR UNEQUIP LOGIC
+                            let fallback = "'default'";
+                            if(tier.type === 'skin') fallback = "'neon'";
+                            if(tier.type === 'trail') fallback = "'none'";
+
+                            html += `
+                                <div class="pass-card ${statusClass}" onclick="if(${isUnlocked}) {
+                                    if(${isEquippedStr}) {
+                                         PlayerData.equip('${tier.type}s', ${fallback});
+                                    } else {
+                                         PlayerData.equip('${tier.type}s', '${tier.id}');
+                                    }
+                                    ui.renderShop('themes');
+                                }">
+                                    <div class="tier-num">TIER ${i+1}</div>
+                                    <div style="font-size: 40px; margin: 10px 0;">${tier.icon}</div>
+                                    <h4>${tier.name}</h4>
+                                    <div class="req">${tier.level} Mins Played</div>
+                                    <div style="margin-top: 10px; color: ${isEquipped ? '#00ffcc' : (isUnlocked ? '#fff' : '#aaa')}">
+                                        ${isEquipped ? 'EQUIPPED (Tap to remove)' : (isUnlocked ? 'EQUIP' : 'LOCKED')}
+                                    </div>
+                                </div>
+                            `;
+                        });
+
+                        html += `</div>`;
+                        container.innerHTML = html;
+                    }
+                    return;
+                }
+
+                // FIX: Ensure grid layout for normal items
+                container.className = 'shop-grid';
+
+                // Default Shop Logic
+                ITEMS[category].forEach(item => {
+                    // Skip pass items in normal shop
+                    if(item.pass) return; // 'christmas' theme
+                    if(category === 'skins' && item.id === 'santa') return;
+                    if(category === 'planes' && item.id === 'sleigh') return;
+                    if(category === 'trails' && item.id === 'snow') return;
+
+                    const el = document.createElement('div');
+                    // Check ownership
+                    let owned = false;
+                    if(category === 'planes') {
+                        owned = PlayerData.inventory.planes.includes(item.id);
+                    } else if(category === 'themes') {
+                        owned = PlayerData.inventory.themes.includes(item.id);
+                    } else {
+                        owned = PlayerData.inventory[category].includes(item.id);
+                    }
+                   
+                    let equipped = false;
+                    if(category === 'planes') {
+                        equipped = PlayerData.equipped.plane === item.id;
+                    } else if(category === 'themes') {
+                        equipped = PlayerData.equipped.theme === item.id;
+                    } else {
+                        equipped = PlayerData.equipped[category.slice(0, -1)] === item.id;
+                    }
+                   
+                    el.className = `shop-item ${owned ? 'owned' : ''} ${equipped ? 'equipped' : ''}`;
+                   
+                    let preview = '';
+                    if (item.type === 'image') {
+                        if (PlayerData.customSkinData) {
+                            preview = `<div class="item-preview" style="background-image:url('${PlayerData.customSkinData}'); border: 2px solid #555;"></div>`;
+                        } else {
+                            preview = `<div class="item-preview" style="border: 2px dashed #555; display:flex; justify-content:center; align-items:center;">?</div>`;
+                        }
+                    } else if (item.type === 'plane') {
+                         preview = `<div class="item-preview" style="font-size: 30px;">✈️</div>`;
+                    } else if (category === 'skins') {
+                        preview = `<div class="item-preview" style="background:${item.color}; box-shadow: 0 0 10px ${item.color}"></div>`;
+                    } else {
+                        preview = `<div class="item-preview" style="border: 2px solid ${item.color || '#fff'}; border-radius: 50%;"></div>`;
+                    }
+
+                    let btnText = owned ? 'Owned' : item.price + ' Coins';
+                    if (owned && item.type === 'image' && !PlayerData.customSkinData) btnText = 'Upload';
+
+                    el.innerHTML = `
+                        ${preview}
+                        <h3>${item.name}</h3>
+                        <p>${btnText}</p>
+                    `;
+
+                    el.onclick = () => {
+                        if (owned) {
+                            if (item.type === 'image') {
+                                document.getElementById('skin-upload').click();
+                            } else {
+                                PlayerData.equip(category, item.id);
+                            }
+                        } else {
+                            if (PlayerData.buy(category, item.id, item.price)) {
+                                // Success buy
+                            } else {
+                                alert("Not enough coins!");
+                            }
+                        }
+                        if (item.type === 'image' && owned) {
+                            PlayerData.equip(category, item.id);
+                        }
+                       
+                        ui.renderShop(category);
+                        ui.updateCoinDisplay();
+                    };
+
+                    container.appendChild(el);
+                });
+            },
+            updateCoinDisplay: () => {
+                document.getElementById('coin-count').innerText = PlayerData.coins;
+            },
+            showExport: (code) => {
+                document.getElementById('modal-title').innerText = "Export Level Code";
+                document.getElementById('modal-desc').innerText = "Copy the code below:";
+                const ta = document.getElementById('level-data');
+                ta.value = code;
+               
+                const btn = document.getElementById('modal-action-btn');
+                btn.innerText = "Copy";
+                btn.onclick = () => {
+                    ta.select();
+                    try {
+                        const successful = document.execCommand('copy');
+                        if(successful) ui.showNotification("Copied to Clipboard!");
+                        else ui.showNotification("Press Ctrl+C to Copy");
+                    } catch(e) {
+                        ui.showNotification("Press Ctrl+C to Copy");
+                    }
+                };
+               
+                ui.show('modal-overlay');
+            },
+            showImport: (isEditor = false) => {
+                document.getElementById('modal-title').innerText = isEditor ? "Import to Editor" : "Load Level";
+                document.getElementById('modal-desc').innerText = "Paste a level code below:";
+                document.getElementById('level-data').value = "";
+               
+                const btn = document.getElementById('modal-action-btn');
+                btn.innerText = "Play / Import";
+                // Override onclick behavior dynamically
+                btn.onclick = () => {
+                    const raw = document.getElementById('level-data').value;
+                    if(isEditor) {
+                        try {
+                            const data = JSON.parse(atob(raw));
+                            editor.open(data);
+                            ui.showNotification("Imported to Editor!");
+                        } catch(e) { alert("Invalid Code"); }
+                    } else {
+                        ui.loadLevelFromInput(raw);
+                    }
+                };
+               
+                ui.show('modal-overlay');
+            },
+            loadLevelFromInput: (raw) => {
+                try {
+                    // If no arg passed, get from text area (main menu call)
+                    const val = raw || document.getElementById('level-data').value;
+                    const data = JSON.parse(atob(val));
+                    game.startLevel(data);
+                } catch(e) {
+                    alert("Invalid Level Code");
+                }
+            },
+            closeModal: () => {
+                if (game.state === 'EDITOR') ui.show('editor-ui');
+                else ui.show('main-menu');
+            },
+            showNotification: (msg) => {
+                const n = document.getElementById('notification');
+                n.innerText = msg;
+                n.style.opacity = '1';
+                setTimeout(() => n.style.opacity = '0', 2000);
+            },
+            showProjects: () => {
+                const list = document.getElementById('projects-list');
+                list.innerHTML = '';
+               
+                if (PlayerData.projects.length === 0) {
+                    list.innerHTML = '<p style="color:#aaa; text-align:center;">No saved projects yet.</p>';
+                } else {
+                    PlayerData.projects.forEach((proj, idx) => {
+                        const div = document.createElement('div');
+                        div.className = 'project-item';
+                        div.innerHTML = `
+                            <div>
+                                <h3 style="margin:0; font-size:1.2rem; color:var(--accent);">${proj.name}</h3>
+                                <small style="color:#666;">${new Date(proj.date).toLocaleDateString()}</small>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <button style="padding:5px 10px; font-size:0.8rem;" onclick="editor.open(PlayerData.projects[${idx}].data, ${idx})">Edit</button>
+                                <button style="padding:5px 10px; font-size:0.8rem;" onclick="game.startLevel(PlayerData.projects[${idx}].data)">Play</button>
+                                <button class="danger" style="padding:5px 10px; font-size:0.8rem; font-weight: bold;" onclick="ui.deleteProject(${idx})">❌</button>
+                            </div>
+                        `;
+                        list.appendChild(div);
+                    });
+                }
+                ui.show('projects-menu');
+            },
+            deleteProject: (idx) => {
+                ui.pendingDeleteIndex = idx;
+                ui.show('delete-modal-overlay');
+            },
+            confirmDelete: () => {
+                if(ui.pendingDeleteIndex > -1) {
+                    PlayerData.projects.splice(ui.pendingDeleteIndex, 1);
+                    PlayerData.save();
+                    ui.pendingDeleteIndex = -1;
+                    ui.showProjects();
+                }
+            },
+            cancelDelete: () => {
+                ui.pendingDeleteIndex = -1;
+                ui.showProjects();
+            }
+        };
+
+        // --- INITIALIZATION ---
+        const game = new Game();
+        const editor = new Editor();
+
+        PlayerData.load();
+       
+        // Expose to global scope for HTML buttons to work
+        window.ui = ui;
+        window.game = game;
+        window.editor = editor;
+        window.PlayerData = PlayerData;
+        window.MusicEngine = MusicEngine;
+
+        // Input Listeners
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.code === 'Space') game.keys.space = true;
+            if (e.code === 'KeyE') {
+                if(game.state === 'MENU') editor.open();
+                else if(game.state === 'EDITOR') editor.exit();
+            }
+            if (e.code === 'Escape') {
+                if(game.state === 'PLAYING') game.pause();
+                else if(game.state === 'PAUSED') game.resume();
+            }
+        });
+        window.addEventListener('keyup', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.code === 'Space') game.keys.space = false;
+        });
+        window.addEventListener('mousedown', (e) => {
+            // Prevent game input if clicking pause button
+            if(e.target.id === 'hud-pause-btn') return;
+            game.keys.mouse = true;
+        });
+        window.addEventListener('mouseup', () => game.keys.mouse = false);
+        window.addEventListener('touchstart', (e) => {
+             if(e.target.id === 'hud-pause-btn') return;
+             game.keys.space = true;
+        });
+        window.addEventListener('touchend', () => game.keys.space = false);
+
+        // --- ADDED: GLOBAL CLICK LISTENER FOR BUTTON SFX ---
+        window.addEventListener('click', (e) => {
+             if(e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                 MusicEngine.playClick();
+             }
+        });
+
+    </script>
+</body>
+</html>
